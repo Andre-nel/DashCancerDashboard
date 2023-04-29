@@ -61,6 +61,7 @@ roc_auc_all = roc_auc_score(y_test_all, y_pred_all)
 # Create the app layout with the visualizations:
 # app = dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+server = app.server
 
 app.layout = dbc.Container([
     dbc.Row([
