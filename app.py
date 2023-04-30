@@ -133,7 +133,10 @@ app.layout = dbc.Container([
                 dcc.Interval(id="step-interval", interval=1000, n_intervals=0),
                 dbc.Button("Predict Diagnosis", id="predict-btn", color="primary"),
                 dbc.Progress(id="prediction-progress", className="mt-5", style={"height": "30px"}),
-                dcc.Graph(id='line-graph'),
+                dcc.Graph(id='line-graph', figure=px.line(
+                    labels={'x': 'Prediction Number', 'y': 'Prediction for Malignancy (%)'},
+                    title="Malignancy Prediction History (Make a prediction)"
+                )),
             ],
             id="prediction-form",
         ),
@@ -164,9 +167,12 @@ metadata = []
     [Input('x-axis-original', 'value'), Input('y-axis-original', 'value')]
 )
 def update_scatter_original(x_axis, y_axis):
+    custom_color_scale = px.colors.qualitative.Plotly
+    color_map = {'M': custom_color_scale[1], 'B': custom_color_scale[0]}  # Red for 'M', Blue for 'B'
     return px.scatter(data_frame=original_data, x=x_axis, y=y_axis, color='diagnosis',
                       title="Original Feature Relationships", labels={'diagnosis': 'Diagnosis'},
-                      hover_data=X_all.columns, height=500)
+                      hover_data=X_all.columns, height=500,
+                      color_discrete_map=color_map)  # Add color_discrete_map parameter
 
 
 @app.callback(
@@ -243,7 +249,10 @@ def update_prediction(n_clicks, *features):
         raise PreventUpdate
 
     features = list(map(float, features))
-    metadata.append(features)
+
+    point_meta = dict(zip(list(X_original.columns), features))
+    metadata.append(point_meta)
+
     prediction_proba = predict_diagnosis(model_all, features, pipeline_fit_to_all_features_path)
     malignant_proba = prediction_proba[0][1] * 100
 
@@ -271,22 +280,24 @@ app.clientside_callback(
 )
 def update_graphs(input_value):
     # Parse the input_value string to extract the new_prediction value
-    print(input_value)
     start = input_value.find(" ") + 1
     end = input_value.find("]]")
     new_prediction = float(input_value[start:end])
-    print(new_prediction)
 
     # Update the line graph
     add_prediction(new_prediction)
 
-    # Create a DataFrame for the line graph
-    line_graph_df = pd.DataFrame({'index': x_axis_values, 'predictions': predictions, 'metadata': metadata})
+    print("x_axis_values: ", x_axis_values)
+    print("predictions: ", predictions)
+    print("metadata: ", metadata)
 
-    # Return the updated line_graph as a plotly.express graph
-    return px.line(data_frame=line_graph_df, x='index', y='predictions',
-                   title="Prediction Line Graph", labels={'predictions': 'Predictions', 'index': 'Index'},
-                   height=500, hover_data=['metadata'], markers=True)
+    # Create a DataFrame for the line graph
+    line_graph_df = pd.DataFrame({'Prediction Number': x_axis_values, 'Prediction for Malignancy (%)': predictions, **pd.DataFrame(metadata)})
+    metadata_columns = list(metadata[0].keys()) if len(metadata) > 0 else []
+    # Return a plotly.express graph
+    return px.line(data_frame=line_graph_df, x='Prediction Number', y='Prediction for Malignancy (%)',
+                   title="Malignancy Prediction History (The meta data displays from point 3 onwards.)",
+                   height=500, hover_data=metadata_columns, markers=True)
 
 
 # Step 2: Add a new prediction and its corresponding x-axis value
