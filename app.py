@@ -6,11 +6,14 @@ from dash import html, dcc
 from dash.dependencies import Input, Output, State
 # from dash import callback_context
 import plotly.express as px
+import plotly.graph_objs as go
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from pathlib import Path
 from dash.exceptions import PreventUpdate
+import numpy as np
+import ast
 
 external_scripts = [
     "https://code.jquery.com/jquery-3.6.0.min.js",
@@ -129,7 +132,8 @@ app.layout = dbc.Container([
                 ),
                 dcc.Interval(id="step-interval", interval=1000, n_intervals=0),
                 dbc.Button("Predict Diagnosis", id="predict-btn", color="primary"),
-                dbc.Progress(id="prediction-progress", className="mt-5", style={"height": "30px"})
+                dbc.Progress(id="prediction-progress", className="mt-5", style={"height": "30px"}),
+                dcc.Graph(id='line-graph'),
             ],
             id="prediction-form",
         ),
@@ -220,42 +224,6 @@ for i in range(30):
             raise PreventUpdate
 
 
-# for i in range(30):
-#     @app.callback(
-#         Output(f"feature-{i}", "value"),
-#         [Input("up-arrow-triggered-field", "children"),
-#          Input("down-arrow-triggered-field", "children")],
-#         [State(f"feature-{i}", "value")]
-#     )
-#     def update_input_field_by_step(up_arrow_triggered_field, down_arrow_triggered_field, current_value, index=i):
-#         ctx = dash.callback_context
-#         if not ctx.triggered:
-#             raise PreventUpdate
-
-#         triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
-
-#         if current_value and ((up_arrow_triggered_field and int(up_arrow_triggered_field) == index and triggered_id == "up-arrow-triggered-field") or
-#                               (down_arrow_triggered_field and int(down_arrow_triggered_field) == index and triggered_id == "down-arrow-triggered-field")):
-
-#             factor = 1.05 if triggered_id == "up-arrow-triggered-field" else 0.95
-#             new_value = current_value * factor
-#             return new_value
-
-#         raise PreventUpdate
-
-
-# for i in range(30):
-#     @app.callback(
-#         Output(f"feature-{i}", "value"),
-#         [Input('selected-point-index', 'children')]
-#     )
-#     def update_input_field(value, index=i):
-#         if value is not None and index is not None:
-#             selected_point = X_original.iloc[int(value)].values
-#             return selected_point[index]
-#         raise PreventUpdate
-
-
 @app.callback(
     Output("prediction-progress", "children"),
     Output("prediction-progress", "value"),
@@ -287,6 +255,49 @@ app.clientside_callback(
     Input("predict-btn", "n_clicks"),
     Input("prediction-result", "children"),
 )
+
+
+# The callback function that updates both the scatter plot and the line graph
+@app.callback(
+    Output('line-graph', 'figure'),
+    [Input('prediction-result', 'children')]
+)
+def update_graphs(input_value):
+    # Parse the input_value string to extract the new_prediction value
+    print(input_value)
+    start = input_value.find(" ") + 1
+    end = input_value.find("]]")
+    new_prediction = float(input_value[start:end])
+    print(new_prediction)
+
+    # Update the line graph
+    add_prediction(new_prediction)
+
+    # Create a DataFrame for the line graph
+    line_graph_df = pd.DataFrame({'index': x_axis_values, 'predictions': predictions})
+
+    print(line_graph_df)
+
+    # Return the updated line_graph as a plotly.express graph
+    return px.line(data_frame=line_graph_df, x='index', y='predictions',
+                   title="Prediction Line Graph", labels={'predictions': 'Predictions', 'index': 'Index'},
+                   height=500)
+
+
+# Step 1: Create empty lists to store data
+predictions = []
+x_axis_values = []
+
+
+# Step 2: Add a new prediction and its corresponding x-axis value
+def add_prediction(new_prediction):
+    predictions.append(new_prediction)
+    if not x_axis_values:
+        x_value = 1
+    else:
+        x_value = x_axis_values[-1] + 1
+    x_axis_values.append(x_value)
+
 
 if __name__ == "__main__":
     # Run the app
