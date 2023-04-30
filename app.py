@@ -1,21 +1,27 @@
 # Import the necessary libraries and load the data:
+from utils import load_pickle, predict_diagnosis
 import dash
 import dash_bootstrap_components as dbc
 from dash import html, dcc
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 # from dash import callback_context
 import plotly.express as px
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from pathlib import Path
+from dash.exceptions import PreventUpdate
+
+external_scripts = [
+    "https://code.jquery.com/jquery-3.6.0.min.js",
+]
+
 # from pyngrok import ngrok
 # from jupyter_dash import JupyterDash
 
 # Set the ngrok authtoken
 # ngrok.set_auth_token("2P4d1RHfUpQVrhLrNp0vlYJDt69_28fyJTnWGUeYmAKfGEZNJ")
 
-from utils import load_pickle, predict_diagnosis
 
 root_path = Path(__file__).parent
 data_dir = root_path / "data"
@@ -34,10 +40,6 @@ y_all = preprocessed_all_features_data['diagnosis']
 
 X_original = original_data.drop(columns=["diagnosis", "Unnamed: 32", "id"])
 y_original = original_data['diagnosis']
-
-# Split the data into train and test sets
-X_train_original, X_test_original, y_train_original, y_test_original = train_test_split(
-    X_original, y_original, test_size=0.2, random_state=42)
 
 X_train_all, X_test_all, y_train_all, y_test_all = train_test_split(
     X_all, y_all, test_size=0.2, random_state=42)
@@ -60,7 +62,8 @@ roc_auc_all = roc_auc_score(y_test_all, y_pred_all)
 
 # Create the app layout with the visualizations:
 # app = dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], external_scripts=external_scripts)
+
 server = app.server
 
 app.layout = dbc.Container([
@@ -109,15 +112,22 @@ app.layout = dbc.Container([
                 dbc.Row(
                     [
                         dbc.Col(
-                            html.Div([
-                                dbc.Label(f"Feature {i + 1}", html_for=f"feature-{i}"),
-                                dbc.Input(type="number", id=f"feature-{i}", step="1e-18", required=True)
-                            ]),
+                            html.Div(
+                                [
+                                    dbc.Label(f"Feature {i + 1}", html_for=f"feature-{i}"),
+                                    dbc.Input(
+                                        type="number",
+                                        id=f"feature-{i}",
+                                        required=True,
+                                    ),
+                                ]
+                            ),
                             md=6,
                         )
                         for i in range(30)
                     ]
                 ),
+                dcc.Interval(id="step-interval", interval=1000, n_intervals=0),
                 dbc.Button("Predict Diagnosis", id="predict-btn", color="primary"),
                 dbc.Progress(id="prediction-progress", className="mt-5", style={"height": "30px"})
             ],
@@ -126,12 +136,19 @@ app.layout = dbc.Container([
     ]),
     html.Div(id='selected-point-index', style={'display': 'none'}),
     html.Div(id="prediction-result", style={"display": "none"}),
-    html.Div(id="console-log-dummy", style={"display": "none"}),  # Add this line
-])
+    html.Div(id="console-log", style={"display": "none"}),
+    html.Div(id='up-arrow-triggered-field', style={'display': 'none'}),
+    html.Div(id='down-arrow-triggered-field', style={'display': 'none'}),
+    html.Div(id='clientside-output', style={'display': 'none'}),
+    html.Div(id='detect-arrow-key', style={'display': 'none'}),
+    html.Div(id='step-called', style={'display': 'none'}),
+
+],
+    fluid=True,
+)
+
 
 # Update the scatter plot based on the selected features
-
-
 @app.callback(
     Output('scatter-plot-original', 'figure'),
     [Input('x-axis-original', 'value'), Input('y-axis-original', 'value')]
@@ -147,21 +164,96 @@ def update_scatter_original(x_axis, y_axis):
     [Input('scatter-plot-original', 'clickData')]
 )
 def update_selected_point_index(clickData):
-    if clickData:
-        return clickData['points'][0]['pointIndex']
+    if clickData is None:
+        return None
+    values_to_search = clickData['points'][0]['customdata']
+    # Iterate over the rows of the DataFrame
+    for idx, row in original_data.iterrows():
+        # Convert row values and search values to sets of strings
+        row_set = set(row.values)
+        search_values_set = set(values_to_search)
+        # Check if the search_values_set is a subset of row_set
+        if search_values_set.issubset(row_set):
+            return idx
     return None
+
+
+@app.callback(
+    Output("step-called", "children"),
+    [Input("step-interval", "n_intervals")],
+)
+def update_step_size(n_intervals):
+    return n_intervals
 
 
 for i in range(30):
     @app.callback(
         Output(f"feature-{i}", "value"),
-        [Input('selected-point-index', 'children')]
+        [Input('selected-point-index', 'children'),
+         Input("up-arrow-triggered-field", "children"),
+         Input("down-arrow-triggered-field", "children")],
+        [State(f"feature-{i}", "value")]
     )
-    def update_input_field(value, index=i):
-        if value is not None:
-            selected_point = X_original.iloc[int(value)].values
-            return selected_point[index]
-        return None
+    def update_input_field(value, up_arrow_triggered_field, down_arrow_triggered_field, current_value, index=i):
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            raise PreventUpdate
+
+        triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+        if triggered_id == 'selected-point-index':
+            if value is not None and index is not None:
+                selected_point = X_original.iloc[int(value)].values
+                return selected_point[index]
+            raise PreventUpdate
+        else:
+            if (current_value and
+                ((up_arrow_triggered_field and int(up_arrow_triggered_field) == index and
+                  triggered_id == "up-arrow-triggered-field") or
+                 (down_arrow_triggered_field and int(down_arrow_triggered_field) == index and
+                    triggered_id == "down-arrow-triggered-field"))):
+
+                factor = 1.05 if triggered_id == "up-arrow-triggered-field" else 0.95
+                new_value = current_value * factor
+                return new_value
+
+            raise PreventUpdate
+
+
+# for i in range(30):
+#     @app.callback(
+#         Output(f"feature-{i}", "value"),
+#         [Input("up-arrow-triggered-field", "children"),
+#          Input("down-arrow-triggered-field", "children")],
+#         [State(f"feature-{i}", "value")]
+#     )
+#     def update_input_field_by_step(up_arrow_triggered_field, down_arrow_triggered_field, current_value, index=i):
+#         ctx = dash.callback_context
+#         if not ctx.triggered:
+#             raise PreventUpdate
+
+#         triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+#         if current_value and ((up_arrow_triggered_field and int(up_arrow_triggered_field) == index and triggered_id == "up-arrow-triggered-field") or
+#                               (down_arrow_triggered_field and int(down_arrow_triggered_field) == index and triggered_id == "down-arrow-triggered-field")):
+
+#             factor = 1.05 if triggered_id == "up-arrow-triggered-field" else 0.95
+#             new_value = current_value * factor
+#             return new_value
+
+#         raise PreventUpdate
+
+
+# for i in range(30):
+#     @app.callback(
+#         Output(f"feature-{i}", "value"),
+#         [Input('selected-point-index', 'children')]
+#     )
+#     def update_input_field(value, index=i):
+#         if value is not None and index is not None:
+#             selected_point = X_original.iloc[int(value)].values
+#             return selected_point[index]
+#         raise PreventUpdate
 
 
 @app.callback(
@@ -173,15 +265,14 @@ for i in range(30):
     [Input(f"feature-{i}", "value") for i in range(30)],
 )
 def update_prediction(n_clicks, *features):
-    if n_clicks is not None and None not in features:
-        features = list(map(float, features))
-        prediction_proba = predict_diagnosis(model_all, features, pipeline_fit_to_all_features_path)
-        print(prediction_proba)
-        malignant_proba = prediction_proba[0][1] * 100
+    if n_clicks is None and None in features:
+        raise PreventUpdate
 
-        return f"Malignant: {malignant_proba:.2f}%", malignant_proba, {"height": "30px"}, str(prediction_proba)
+    features = list(map(float, features))
+    prediction_proba = predict_diagnosis(model_all, features, pipeline_fit_to_all_features_path)
+    malignant_proba = prediction_proba[0][1] * 100
 
-    return "Malignant: 0%", 0, {"height": "30px"}, ""
+    return f"Malignant: {malignant_proba:.2f}%", malignant_proba, {"height": "30px"}, str(prediction_proba)
 
 
 app.clientside_callback(
@@ -192,7 +283,7 @@ app.clientside_callback(
         }
     }
     """,
-    Output("console-log-dummy", "children"),  # Update this line
+    Output("console-log", "children"),  # Update this line
     Input("predict-btn", "n_clicks"),
     Input("prediction-result", "children"),
 )
