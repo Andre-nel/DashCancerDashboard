@@ -129,7 +129,7 @@ app.layout = dbc.Container([
                 ),
                 dbc.Button("Predict Diagnosis", id="predict-btn", color="primary"),
                 dbc.Progress(id="prediction-progress", className="mt-5", style={"height": "30px"}),
-                dcc.Graph(id='line-graph', figure=px.line(
+                dcc.Graph(id='scatter-prediction', figure=px.line(
                     labels={'x': 'Prediction Number', 'y': 'Prediction for Malignancy (%)'},
                     title="Malignancy Prediction History"
                 )),
@@ -216,6 +216,8 @@ for i in range(30):
     [Input(f"feature-{i}", "value") for i in range(30)],
 )
 def update_prediction(n_clicks, *features):
+    global metadata
+
     if n_clicks is None and None in features:
         raise PreventUpdate
 
@@ -246,37 +248,42 @@ app.clientside_callback(
 
 # The callback function that updates both the scatter plot and the line graph
 @app.callback(
-    Output('line-graph', 'figure'),
+    Output('scatter-prediction', 'figure'),
     [Input('prediction-result', 'children')]
 )
 def update_graphs(input_value):
+    global predictions, x_axis_values, metadata
     # Parse the input_value string to extract the new_prediction value
     start = input_value.find(" ") + 1
     end = input_value.find("]]")
     new_prediction = float(input_value[start:end])
 
-    # Update the line graph
-    add_prediction(new_prediction)
-
-    # Create a DataFrame for the line graph
-    line_graph_df = pd.DataFrame({'Prediction Number': x_axis_values,
-                                  'Prediction for Malignancy (%)': predictions,
-                                  **pd.DataFrame(metadata)})
-    metadata_columns = list(metadata[0].keys()) if len(metadata) > 0 else []
-    # Return a plotly.express graph
-    return px.line(data_frame=line_graph_df, x='Prediction Number', y='Prediction for Malignancy (%)',
-                   title="Malignancy Prediction History",
-                   height=500, hover_data=metadata_columns, markers=True)
-
-
-# Step 2: Add a new prediction and its corresponding x-axis value
-def add_prediction(new_prediction):
+    # Update the graph
     predictions.append(new_prediction)
     if not x_axis_values:
         x_value = 1
     else:
         x_value = x_axis_values[-1] + 1
     x_axis_values.append(x_value)
+
+    # Create a DataFrame for the line graph
+    metadata_columns = list(metadata[0].keys()) if len(metadata) > 0 else []
+    prediction_df = pd.DataFrame({'Prediction Number': x_axis_values,
+                                  'Prediction for Malignancy': predictions,
+                                  **{col: [item[col] for item in metadata] for col in metadata_columns}})
+
+    # Add a new column for risk category
+    prediction_df['Risk Category'] = prediction_df['Prediction for Malignancy'].apply(lambda x: 'High' if x > 0.5 else 'Low')
+
+    custom_color_scale = px.colors.qualitative.Plotly
+    # Red for 'High' risk, Blue for 'Low' risk
+    color_map = {'High': custom_color_scale[1], 'Low': custom_color_scale[0]}
+
+    # Return a plotly.express graph
+    return px.scatter(data_frame=prediction_df, x='Prediction Number', y='Prediction for Malignancy',
+                      title="Malignancy Prediction History", color='Risk Category',
+                      height=500, hover_data=metadata_columns,
+                      color_discrete_map=color_map)
 
 
 if __name__ == "__main__":
