@@ -12,9 +12,9 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from pathlib import Path
 from dash.exceptions import PreventUpdate
 
-external_scripts = [
-    "https://code.jquery.com/jquery-3.6.0.min.js",
-]
+# external_scripts = [
+#     "https://code.jquery.com/jquery-3.6.0.min.js",
+# ]
 
 # from pyngrok import ngrok
 # from jupyter_dash import JupyterDash
@@ -62,7 +62,7 @@ roc_auc_all = roc_auc_score(y_test_all, y_pred_all)
 
 # Create the app layout with the visualizations:
 # app = dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], external_scripts=external_scripts)
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])  # , external_scripts=external_scripts
 
 server = app.server
 
@@ -273,7 +273,8 @@ def update_graphs(input_value):
                                   **{col: [item[col] for item in metadata] for col in metadata_columns}})
 
     # Add a new column for risk category
-    prediction_df['Risk Category'] = prediction_df['Prediction for Malignancy'].apply(lambda x: 'High' if x > 0.5 else 'Low')
+    prediction_df['Risk Category'] = prediction_df['Prediction for Malignancy'].apply(
+                                        lambda x: 'High' if x > 0.5 else 'Low')
 
     custom_color_scale = px.colors.qualitative.Plotly
     # Red for 'High' risk, Blue for 'Low' risk
