@@ -127,7 +127,6 @@ app.layout = dbc.Container([
                         for label, i in zip(list(X_all.columns), range(30))
                     ]
                 ),
-                dcc.Interval(id="step-interval", interval=1000, n_intervals=0),
                 dbc.Button("Predict Diagnosis", id="predict-btn", color="primary"),
                 dbc.Progress(id="prediction-progress", className="mt-5", style={"height": "30px"}),
                 dcc.Graph(id='line-graph', figure=px.line(
@@ -141,12 +140,7 @@ app.layout = dbc.Container([
     html.Div(id='selected-point-index', style={'display': 'none'}),
     html.Div(id="prediction-result", style={"display": "none"}),
     html.Div(id="console-log", style={"display": "none"}),
-    html.Div(id='up-arrow-triggered-field', style={'display': 'none'}),
-    html.Div(id='down-arrow-triggered-field', style={'display': 'none'}),
     html.Div(id='clientside-output', style={'display': 'none'}),
-    html.Div(id='detect-arrow-key', style={'display': 'none'}),
-    html.Div(id='step-called', style={'display': 'none'}),
-
 ],
     fluid=True,
 )
@@ -191,23 +185,13 @@ def update_selected_point_index(clickData):
     return None
 
 
-@app.callback(
-    Output("step-called", "children"),
-    [Input("step-interval", "n_intervals")],
-)
-def update_step_size(n_intervals):
-    return n_intervals
-
-
 for i in range(30):
     @app.callback(
         Output(f"feature-{i}", "value"),
-        [Input('selected-point-index', 'children'),
-         Input("up-arrow-triggered-field", "children"),
-         Input("down-arrow-triggered-field", "children")],
+        [Input('selected-point-index', 'children')],
         [State(f"feature-{i}", "value")]
     )
-    def update_input_field(value, up_arrow_triggered_field, down_arrow_triggered_field, current_value, index=i):
+    def update_input_field(value, current_value, index=i):
         ctx = dash.callback_context
         if not ctx.triggered:
             raise PreventUpdate
@@ -220,16 +204,6 @@ for i in range(30):
                 return selected_point[index]
             raise PreventUpdate
         else:
-            if (current_value and
-                ((up_arrow_triggered_field and int(up_arrow_triggered_field) == index and
-                  triggered_id == "up-arrow-triggered-field") or
-                 (down_arrow_triggered_field and int(down_arrow_triggered_field) == index and
-                    triggered_id == "down-arrow-triggered-field"))):
-
-                factor = 1.05 if triggered_id == "up-arrow-triggered-field" else 0.95
-                new_value = current_value * factor
-                return new_value
-
             raise PreventUpdate
 
 
@@ -283,10 +257,6 @@ def update_graphs(input_value):
 
     # Update the line graph
     add_prediction(new_prediction)
-
-    # print("x_axis_values: ", x_axis_values)
-    # print("predictions: ", predictions)
-    # print("metadata: ", metadata)
 
     # Create a DataFrame for the line graph
     line_graph_df = pd.DataFrame({'Prediction Number': x_axis_values,
