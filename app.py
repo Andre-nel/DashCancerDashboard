@@ -152,6 +152,12 @@ app.layout = dbc.Container([
 )
 
 
+# Create empty lists to store data
+predictions = []
+x_axis_values = []
+metadata = []
+
+
 # Update the scatter plot based on the selected features
 @app.callback(
     Output('scatter-plot-original', 'figure'),
@@ -237,6 +243,7 @@ def update_prediction(n_clicks, *features):
         raise PreventUpdate
 
     features = list(map(float, features))
+    metadata.append(features)
     prediction_proba = predict_diagnosis(model_all, features, pipeline_fit_to_all_features_path)
     malignant_proba = prediction_proba[0][1] * 100
 
@@ -274,19 +281,12 @@ def update_graphs(input_value):
     add_prediction(new_prediction)
 
     # Create a DataFrame for the line graph
-    line_graph_df = pd.DataFrame({'index': x_axis_values, 'predictions': predictions})
-
-    print(line_graph_df)
+    line_graph_df = pd.DataFrame({'index': x_axis_values, 'predictions': predictions, 'metadata': metadata})
 
     # Return the updated line_graph as a plotly.express graph
     return px.line(data_frame=line_graph_df, x='index', y='predictions',
                    title="Prediction Line Graph", labels={'predictions': 'Predictions', 'index': 'Index'},
-                   height=500)
-
-
-# Step 1: Create empty lists to store data
-predictions = []
-x_axis_values = []
+                   height=500, hover_data=['metadata'], markers=True)
 
 
 # Step 2: Add a new prediction and its corresponding x-axis value
