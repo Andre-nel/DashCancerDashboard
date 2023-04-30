@@ -207,11 +207,12 @@ for i in range(30):
     Output("prediction-progress", "style"),
     Output("prediction-result", "children"),
     Output("predict-btn", "n_clicks"),
+    Output('scatter-prediction', 'figure'),
     Input("predict-btn", "n_clicks"),
     [Input(f"feature-{i}", "value") for i in range(30)],
 )
 def update_prediction(n_clicks, *features):
-    global metadata
+    global metadata, predictions, x_axis_values
 
     if n_clicks is None or None in features:
         raise PreventUpdate
@@ -224,37 +225,9 @@ def update_prediction(n_clicks, *features):
     prediction_proba = predict_diagnosis(model_all, features, pipeline_fit_to_all_features_path)
     malignant_proba = prediction_proba[0][1] * 100
 
-    return f"Malignant: {malignant_proba:.2f}%", malignant_proba, {"height": "30px"}, str(prediction_proba), None
-
-
-app.clientside_callback(
-    """
-    function log_prediction_proba(n_clicks, prediction_proba) {
-        if (n_clicks) {
-            console.log('prediction_proba:', prediction_proba);
-        }
-    }
-    """,
-    Output("console-log", "children"),  # Update this line
-    Input("predict-btn", "n_clicks"),
-    Input("prediction-result", "children"),
-)
-
-
-# The callback function that updates both the scatter plot and the line graph
-@app.callback(
-    Output('scatter-prediction', 'figure'),
-    Input('predict-btn', 'n_clicks'),
-    Input('prediction-result', 'children')
-)
-def update_graphs(n_clicks, input_value):
-    if input_value is None:
-        raise PreventUpdate
-    global predictions, x_axis_values, metadata
+    # The callback function that updates both the scatter plot and the line graph
     # Parse the input_value string to extract the new_prediction value
-    start = input_value.find(" ") + 1
-    end = input_value.find("]]")
-    new_prediction = float(input_value[start:end])
+    new_prediction = malignant_proba
 
     # Update the graph
     predictions.append(new_prediction)
@@ -272,17 +245,75 @@ def update_graphs(n_clicks, input_value):
 
     # Add a new column for risk category
     prediction_df['Risk Category'] = prediction_df['Prediction for Malignancy'].apply(
-                                        lambda x: 'High' if x > 0.5 else 'Low')
+        lambda x: 'High' if x > 0.5 else 'Low')
 
     custom_color_scale = px.colors.qualitative.Plotly
     # Red for 'High' risk, Blue for 'Low' risk
     color_map = {'High': custom_color_scale[1], 'Low': custom_color_scale[0]}
 
-    # Return a plotly.express graph
-    return px.scatter(data_frame=prediction_df, x='Prediction Number', y='Prediction for Malignancy',
-                      title="Malignancy Prediction History", color='Risk Category',
-                      height=500, hover_data=metadata_columns,
-                      color_discrete_map=color_map)
+    return (f"Malignant: {malignant_proba:.2f}%", malignant_proba, {"height": "30px"}, str(prediction_proba), None,
+            px.scatter(data_frame=prediction_df, x='Prediction Number', y='Prediction for Malignancy',
+                       title="Malignancy Prediction History", color='Risk Category',
+                       height=500, hover_data=metadata_columns,
+                       color_discrete_map=color_map))
+
+
+app.clientside_callback(
+    """
+    function log_prediction_proba(n_clicks, prediction_proba) {
+        if (n_clicks) {
+            console.log('prediction_proba:', prediction_proba);
+        }
+    }
+    """,
+    Output("console-log", "children"),  # Update this line
+    Input("predict-btn", "n_clicks"),
+    Input("prediction-result", "children"),
+)
+
+
+# # The callback function that updates both the scatter plot and the line graph
+# @app.callback(
+#     Output('scatter-prediction', 'figure'),
+#     Input('predict-btn', 'n_clicks'),
+#     Input('prediction-result', 'children')
+# )
+# def update_graphs(n_clicks, input_value):
+#     if input_value is None:
+#         raise PreventUpdate
+#     global predictions, x_axis_values, metadata
+#     # Parse the input_value string to extract the new_prediction value
+#     start = input_value.find(" ") + 1
+#     end = input_value.find("]]")
+#     new_prediction = float(input_value[start:end])
+
+#     # Update the graph
+#     predictions.append(new_prediction)
+#     if not x_axis_values:
+#         x_value = 1
+#     else:
+#         x_value = x_axis_values[-1] + 1
+#     x_axis_values.append(x_value)
+
+#     # Create a DataFrame for the line graph
+#     metadata_columns = list(metadata[0].keys()) if len(metadata) > 0 else []
+#     prediction_df = pd.DataFrame({'Prediction Number': x_axis_values,
+#                                   'Prediction for Malignancy': predictions,
+#                                   **{col: [item[col] for item in metadata] for col in metadata_columns}})
+
+#     # Add a new column for risk category
+#     prediction_df['Risk Category'] = prediction_df['Prediction for Malignancy'].apply(
+#                                         lambda x: 'High' if x > 0.5 else 'Low')
+
+#     custom_color_scale = px.colors.qualitative.Plotly
+#     # Red for 'High' risk, Blue for 'Low' risk
+#     color_map = {'High': custom_color_scale[1], 'Low': custom_color_scale[0]}
+
+#     # Return a plotly.express graph
+#     return px.scatter(data_frame=prediction_df, x='Prediction Number', y='Prediction for Malignancy',
+#                       title="Malignancy Prediction History", color='Risk Category',
+#                       height=500, hover_data=metadata_columns,
+#                       color_discrete_map=color_map)
 
 
 if __name__ == "__main__":
