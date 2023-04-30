@@ -12,16 +12,11 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from pathlib import Path
 from dash.exceptions import PreventUpdate
 
-# external_scripts = [
-#     "https://code.jquery.com/jquery-3.6.0.min.js",
-# ]
-
 # from pyngrok import ngrok
 # from jupyter_dash import JupyterDash
 
 # Set the ngrok authtoken
 # ngrok.set_auth_token("2P4d1RHfUpQVrhLrNp0vlYJDt69_28fyJTnWGUeYmAKfGEZNJ")
-
 
 root_path = Path(__file__).parent
 data_dir = root_path / "data"
@@ -61,7 +56,6 @@ roc_auc_all = roc_auc_score(y_test_all, y_pred_all)
 # print("Your Dash app is accessible at:", public_url)
 
 # Create the app layout with the visualizations:
-# app = dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])  # , external_scripts=external_scripts
 
 server = app.server
@@ -211,14 +205,15 @@ for i in range(30):
     Output("prediction-progress", "children"),
     Output("prediction-progress", "value"),
     Output("prediction-progress", "style"),
-    Output("prediction-result", "children"),  # Add this line
+    Output("prediction-result", "children"),
+    Output("predict-btn", "n_clicks"),
     Input("predict-btn", "n_clicks"),
     [Input(f"feature-{i}", "value") for i in range(30)],
 )
 def update_prediction(n_clicks, *features):
     global metadata
 
-    if n_clicks is None and None in features:
+    if n_clicks is None or None in features:
         raise PreventUpdate
 
     features = list(map(float, features))
@@ -229,7 +224,7 @@ def update_prediction(n_clicks, *features):
     prediction_proba = predict_diagnosis(model_all, features, pipeline_fit_to_all_features_path)
     malignant_proba = prediction_proba[0][1] * 100
 
-    return f"Malignant: {malignant_proba:.2f}%", malignant_proba, {"height": "30px"}, str(prediction_proba)
+    return f"Malignant: {malignant_proba:.2f}%", malignant_proba, {"height": "30px"}, str(prediction_proba), None
 
 
 app.clientside_callback(
@@ -249,9 +244,12 @@ app.clientside_callback(
 # The callback function that updates both the scatter plot and the line graph
 @app.callback(
     Output('scatter-prediction', 'figure'),
-    [Input('prediction-result', 'children')]
+    Input('predict-btn', 'n_clicks'),
+    Input('prediction-result', 'children')
 )
-def update_graphs(input_value):
+def update_graphs(n_clicks, input_value):
+    if input_value is None:
+        raise PreventUpdate
     global predictions, x_axis_values, metadata
     # Parse the input_value string to extract the new_prediction value
     start = input_value.find(" ") + 1
@@ -290,4 +288,4 @@ def update_graphs(input_value):
 if __name__ == "__main__":
     # Run the app
     # app.run_server(mode='external', port=8050)
-    app.run_server(debug=True)
+    app.run_server(debug=False)
