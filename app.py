@@ -132,7 +132,7 @@ app.layout = dbc.Container([
                 dbc.Progress(id="prediction-progress", className="mt-5", style={"height": "30px"}),
                 dcc.Graph(id='line-graph', figure=px.line(
                     labels={'x': 'Prediction Number', 'y': 'Prediction for Malignancy (%)'},
-                    title="Malignancy Prediction History (Make a prediction)"
+                    title="Malignancy Prediction History"
                 )),
             ],
             id="prediction-form",
@@ -284,9 +284,9 @@ def update_graphs(input_value):
     # Update the line graph
     add_prediction(new_prediction)
 
-    print("x_axis_values: ", x_axis_values)
-    print("predictions: ", predictions)
-    print("metadata: ", metadata)
+    # print("x_axis_values: ", x_axis_values)
+    # print("predictions: ", predictions)
+    # print("metadata: ", metadata)
 
     # Create a DataFrame for the line graph
     line_graph_df = pd.DataFrame({'Prediction Number': x_axis_values,
@@ -295,7 +295,7 @@ def update_graphs(input_value):
     metadata_columns = list(metadata[0].keys()) if len(metadata) > 0 else []
     # Return a plotly.express graph
     return px.line(data_frame=line_graph_df, x='Prediction Number', y='Prediction for Malignancy (%)',
-                   title="Malignancy Prediction History (The meta data displays from point 3 onwards.)",
+                   title="Malignancy Prediction History",
                    height=500, hover_data=metadata_columns, markers=True)
 
 
