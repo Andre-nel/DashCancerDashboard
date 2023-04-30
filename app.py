@@ -6,14 +6,11 @@ from dash import html, dcc
 from dash.dependencies import Input, Output, State
 # from dash import callback_context
 import plotly.express as px
-import plotly.graph_objs as go
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from pathlib import Path
 from dash.exceptions import PreventUpdate
-import numpy as np
-import ast
 
 external_scripts = [
     "https://code.jquery.com/jquery-3.6.0.min.js",
@@ -292,7 +289,9 @@ def update_graphs(input_value):
     print("metadata: ", metadata)
 
     # Create a DataFrame for the line graph
-    line_graph_df = pd.DataFrame({'Prediction Number': x_axis_values, 'Prediction for Malignancy (%)': predictions, **pd.DataFrame(metadata)})
+    line_graph_df = pd.DataFrame({'Prediction Number': x_axis_values,
+                                  'Prediction for Malignancy (%)': predictions,
+                                  **pd.DataFrame(metadata)})
     metadata_columns = list(metadata[0].keys()) if len(metadata) > 0 else []
     # Return a plotly.express graph
     return px.line(data_frame=line_graph_df, x='Prediction Number', y='Prediction for Malignancy (%)',
