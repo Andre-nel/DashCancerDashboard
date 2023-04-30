@@ -117,7 +117,7 @@ app.layout = dbc.Container([
                         dbc.Col(
                             html.Div(
                                 [
-                                    dbc.Label(f"Feature {i + 1}", html_for=f"feature-{i}"),
+                                    dbc.Label(label, html_for=label),
                                     dbc.Input(
                                         type="number",
                                         id=f"feature-{i}",
@@ -127,7 +127,7 @@ app.layout = dbc.Container([
                             ),
                             md=6,
                         )
-                        for i in range(30)
+                        for label, i in zip(list(X_all.columns), range(30))
                     ]
                 ),
                 dcc.Interval(id="step-interval", interval=1000, n_intervals=0),
