@@ -74,6 +74,10 @@ app.layout = dbc.Container([
         ])
     ], className="mt-4"),
 
+    dbc.Row([
+        dbc.Col(html.H3("Select Features To Compare"), className="text-center")
+    ], className="mt-4"),
+
     # Original Feature Relationships Visualization
     dbc.Row([
         dbc.Col([
@@ -86,13 +90,16 @@ app.layout = dbc.Container([
     ], className="mt-4"),
 
     dbc.Row([
+        dbc.Col(html.H3("Model Performance"), className="text-center")
+    ], className="mt-4"),
+
+    dbc.Row([
         dbc.Col([
             dcc.Graph(id='performance-metrics-all', figure=px.bar(
                 x=[accuracy_all, precision_all, recall_all, f1_all, roc_auc_all],
                 y=['Accuracy', 'Precision', 'Recall', 'F1', 'ROC AUC'],
                 orientation='h',
                 labels={'x': 'Metric Value', 'y': 'Metrics'},
-                title="All features kept Model Performance Metrics",
                 text=[round(accuracy_all, 2), round(precision_all, 2), round(
                     recall_all, 2), round(f1_all, 2), round(roc_auc_all, 2)]
             ))
@@ -101,6 +108,8 @@ app.layout = dbc.Container([
 
     html.Div([
         html.H1("Cancer Diagnosis Prediction Dashboard", className="text-center mt-4"),
+        html.H3("Prepopulate (optional): Click on a point From the Dataset Feature Relationship plot.",
+                className="text-center mt-4"),
         dbc.Form(
             [
                 dbc.Row(
@@ -121,9 +130,10 @@ app.layout = dbc.Container([
                         for label, i in zip(list(X_all.columns), range(30))
                     ]
                 ),
+                dbc.Row([
+                    dbc.Col(html.H4("Click to make a new Prediction."), className="text-left")
+                ], className="mt-4"),
                 dbc.Button("Predict Diagnosis", id="predict-btn", color="primary"),
-
-                # f"Malignant: {malignant_proba:.2f}%", malignant_proba, 100, style_progress_bar
 
 
                 dbc.Progress(id="prediction-progress", className="mt-5", style={"height": "30px"},
@@ -160,7 +170,7 @@ def update_scatter_original(x_axis, y_axis):
     custom_color_scale = px.colors.qualitative.Plotly
     color_map = {'M': custom_color_scale[1], 'B': custom_color_scale[0]}  # Red for 'M', Blue for 'B'
     return px.scatter(data_frame=original_data, x=x_axis, y=y_axis, color='diagnosis',
-                      title="Original Feature Relationships", labels={'diagnosis': 'Diagnosis'},
+                      labels={'diagnosis': 'Diagnosis'},
                       hover_data=X_all.columns, height=500,
                       color_discrete_map=color_map)  # Add color_discrete_map parameter
 
