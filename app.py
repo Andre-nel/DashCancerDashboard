@@ -107,7 +107,7 @@ app.layout = dbc.Container([
     ], className="mt-4"),
 
     html.Div([
-        html.H1("Cancer Diagnosis Prediction Dashboard", className="text-center mt-4"),
+        html.H2("Cancer Diagnosis Prediction Input Form", className="text-center mt-4"),
         html.H3("Prepopulate (optional): Click on a point From the Dataset Feature Relationship plot.",
                 className="text-center mt-4"),
         dbc.Form(
